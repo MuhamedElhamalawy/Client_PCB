@@ -156,12 +156,12 @@
         </div>
       </div>
 
-      <!-- الشكاوى الحالية فقط (تختفي تلقائياً بعد الإغلاق والتقييم) -->
+      <!-- الشكاوى الحالية فقط (تختفي تلقائياً بعد الإغلاق أو عند تحولها لطلب مهمل) -->
       <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
           <div>
             <h3 class="font-extrabold text-base text-slate-800">📋 الشكاوى الجارية حالياً</h3>
-            <p class="text-[11px] text-slate-500">تختفي الشكوى من هنا تلقائياً بعد إغلاقها وتنتقل إلى نافذة السجلات السابقة</p>
+            <p class="text-[11px] text-slate-500">تختفي الشكوى من هنا تلقائياً بعد إغلاقها أو عند تحولها لطلب مهمل وتنتقل إلى نافذة السجلات السابقة</p>
           </div>
           <div class="flex items-center gap-2">
             <span id="myActiveTicketsCountBadge" class="bg-blue-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">0 جارية</span>
@@ -180,8 +180,8 @@
     <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
       <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
         <div>
-          <h3 class="font-extrabold text-base">📂 سجل الشكاوى السابقة المغلقة</h3>
-          <p class="text-[11px] text-slate-300">جميع البلاغات التي تم حلها وإغلاقها بتفاصيلها الكاملة</p>
+          <h3 class="font-extrabold text-base">📂 سجل الشكاوى السابقة (المغلقة والمهملة)</h3>
+          <p class="text-[11px] text-slate-300">جميع البلاغات التي تم حلها أو انتهت مهلتها بتفاصيلها الكاملة</p>
         </div>
         <button id="closeHistoryModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 w-8 h-8 rounded-lg font-bold text-lg flex items-center justify-center">✕</button>
       </div>
@@ -209,6 +209,7 @@
     const FIREBASE_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
     const ROOM_KEY = "smartline_main";
     const CLIENT_PROFILE_KEY = "smartline_client_profile_v2";
+    const NEGLECT_TIMEOUT_MS = 70000; // دقيقة و10 ثوانٍ (70,000 مللي ثانية) ثم يُسجل كطلب مهمل وينتقل للسجلات السابقة تلقائياً
 
     const manifest = {
       name: "تطبيق بلاغات الصيانة",
@@ -266,6 +267,26 @@
       });
     }
 
+    // فحص الطلبات التي مر عليها دقيقة و10 ثوانٍ دون قبول وتحويلها إلى "طلب مهمل" ونقلها تلقائياً للسجلات السابقة
+    function checkNeglectedTickets() {
+      if (!firebaseRootRef) return;
+      const now = Date.now();
+      Object.values(ticketsMap || {}).forEach(t => {
+        if (t.status === 'pending') {
+          const expireTime = t.neglectedAt || ((t.timestamp || now) + NEGLECT_TIMEOUT_MS);
+          if (now >= expireTime) {
+            firebaseRootRef.child('tickets/' + t.id).update({
+              status: 'neglected',
+              statusLabel: 'طلب مهمل',
+              neglectedTimeStr: new Date().toLocaleString('ar-EG'),
+              archivedByClient: true
+            });
+            pushCloudEvent('TICKET_NEGLECTED', `تحول الطلب (${t.ticketCode}) لقسم ${t.targetDept} إلى "طلب مهمل" لعدم الاستجابة خلال دقيقة و10 ثوانٍ`);
+          }
+        }
+      });
+    }
+
     function initConnection() {
       const ind = document.getElementById('connIndicator');
       const txt = document.getElementById('connStatusText');
@@ -291,6 +312,8 @@
         ticketsMap = val.tickets || {};
         renderTicketsAndHistory();
       });
+
+      setInterval(checkNeglectedTickets, 1000);
     }
 
     function setAuthTab(mode) {
@@ -362,12 +385,14 @@
       const codeNum = Math.floor(1000 + Math.random() * 9000);
       const ticketCode = `TCK-${codeNum}`;
       const id = 't_' + Date.now() + '_' + codeNum;
+      const nowMs = Date.now();
 
       const newTicket = {
         id, ticketCode, referenceNumber: '', targetDept,
         createdAt: new Date().toLocaleString('ar-EG'),
-        timestamp: Date.now(),
-        alarmExpiresAt: Date.now() + 60000,
+        timestamp: nowMs,
+        alarmExpiresAt: nowMs + 60000, // 60 ثانية صوت إنذار ثم 10 ثوانٍ صامت
+        neglectedAt: nowMs + NEGLECT_TIMEOUT_MS, // 70 ثانية (دقيقة و10 ثوانٍ) ثم يُسجل كطلب مهمل وينتقل للسجلات السابقة
         clientName: clientProfile.name,
         clientSap: clientProfile.sap,
         clientPhone: clientProfile.phone,
@@ -391,8 +416,9 @@
       showToast('✅ تم الإرسال بنجاح');
     }
 
-    // تحديد ما إذا كانت الشكوى مغلقة وتنتقل للسجلات السابقة (إذا تم حلها وتقييمها أو ضغط العميل إغلاق)
+    // أي طلب مغلق أو مقيم أو تحول إلى "طلب مهمل" ينتقل تلقائياً إلى نافذة السجلات السابقة
     function isTicketClosedForMainView(t) {
+      if (t.status === 'neglected') return true;
       if (t.archivedByClient === true) return true;
       if (t.status === 'resolved' && Number(t.rating || 0) > 0) return true;
       return false;
@@ -403,7 +429,8 @@
         pending: { text: 'في انتظار استلام الفني', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
         open: { text: 'مفتوحة (تم الاستلام)', cls: 'bg-blue-100 text-blue-800 border-blue-300' },
         in_progress: { text: 'جاري العمل عليها 🔧', cls: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-        resolved: { text: 'تم الحل ✅', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' }
+        resolved: { text: 'تم الحل ✅', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+        neglected: { text: 'طلب مهمل ⚠️ (انتهت المهلة دون استجابة)', cls: 'bg-rose-100 text-rose-800 border-rose-300' }
       };
       const st = statusMap[t.status] || statusMap.pending;
       const curStars = selectedStars[t.id] !== undefined ? selectedStars[t.id] : Number(t.rating || 0);
@@ -444,6 +471,7 @@
               <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-100">${t.targetDept}</span>
               <span class="text-xs text-slate-500">🕒 ${t.createdAt}</span>
               ${t.resolvedAt ? `<span class="text-xs text-emerald-700 font-bold">✅ أُغلقت: ${t.resolvedAt}</span>` : ''}
+              ${t.neglectedTimeStr ? `<span class="text-xs text-rose-700 font-bold">⚠️ أُهمل: ${t.neglectedTimeStr}</span>` : ''}
             </div>
             <span class="text-xs font-extrabold px-3 py-1 rounded-full border ${st.cls}">الحالة: ${st.text}</span>
           </div>
@@ -454,7 +482,7 @@
           <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
             <strong class="text-slate-700">الوصف:</strong> ${t.description || '--'}
           </div>
-          ${t.providerName ? `<div class="bg-slate-50 p-3 rounded-xl border text-xs flex flex-wrap justify-between"><span>👷 المتولي للمشكلة: <strong>${t.providerName}</strong></span><span>📞 تليفون التواصل: <a href="tel:${t.providerPhone}" class="text-blue-700 font-bold underline" dir="ltr">${t.providerPhone}</a></span></div>` : `<div class="text-xs text-slate-400">⏳ بانتظار قبول أحد مقدمي الخدمة...</div>`}
+          ${t.providerName ? `<div class="bg-slate-50 p-3 rounded-xl border text-xs flex flex-wrap justify-between"><span>👷 المتولي للمشكلة: <strong>${t.providerName}</strong></span><span>📞 تليفون التواصل: <a href="tel:${t.providerPhone}" class="text-blue-700 font-bold underline" dir="ltr">${t.providerPhone}</a></span></div>` : `<div class="text-xs text-slate-400">${t.status === 'neglected' ? '⚠️ لم يتم استلام الطلب خلال المهلة المحددة (دقيقة و10 ثوانٍ)' : '⏳ بانتظار قبول أحد مقدمي الخدمة...'}</div>`}
           ${t.resolutionNotes ? `<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs"><div class="flex justify-between font-bold text-emerald-900"><span>🛠️ ما تم عمله لحل المشكلة:</span><span class="font-mono">${t.referenceNumber || ''}</span></div><p class="mt-1 text-emerald-950 font-semibold">${t.resolutionNotes}</p></div>` : ''}
           ${ratingUI}
         </div>
@@ -481,7 +509,7 @@
         activeContainer.innerHTML = `
           <div class="text-center py-8 text-slate-400 space-y-2">
             <p class="font-bold text-slate-600">لا توجد شكاوى جارية مفتوحة حالياً</p>
-            <p class="text-xs">جميع الشكاوى التي تم إغلاقها محفوظة في نافذة (📂 السجلات السابقة)</p>
+            <p class="text-xs">جميع الشكاوى المغلقة أو المهملة محفوظة في نافذة (📂 السجلات السابقة)</p>
           </div>
         `;
       } else {
@@ -490,7 +518,7 @@
 
       if (historyContainer) {
         if (closedHistoryTickets.length === 0) {
-          historyContainer.innerHTML = `<div class="text-center py-10 text-slate-400 font-bold">لا توجد سجلات سابقة مغلقة حتى الآن</div>`;
+          historyContainer.innerHTML = `<div class="text-center py-10 text-slate-400 font-bold">لا توجد سجلات سابقة حتى الآن</div>`;
         } else {
           historyContainer.innerHTML = closedHistoryTickets.map(t => buildTicketCardHtml(t, true)).join('');
         }
