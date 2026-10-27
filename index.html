@@ -3,117 +3,137 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#1d4ed8" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>تطبيق المستخدم | SmartLine</title>
+  <title>تطبيق المستخدم (طالب الخدمة) | SmartLine Alert</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-  <style>body{font-family:'Cairo',sans-serif;background:#f1f5f9}</style>
+  <style>
+    body { font-family: 'Cairo', sans-serif; background-color: #f1f5f9; }
+    .star-btn { transition: transform 0.15s ease; }
+    .star-btn:hover { transform: scale(1.2); }
+  </style>
 </head>
 <body class="min-h-screen text-slate-800 pb-12">
 
-  <!-- شريط حالة الاتصال -->
-  <div class="bg-slate-900 text-white text-xs py-2.5 px-4">
+  <div class="bg-slate-900 text-white text-xs py-2.5 px-4 shadow-sm">
     <div class="max-w-4xl mx-auto flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2">
-        <span id="connDot" class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
-        <span id="connStatusText" class="font-bold">جاري الاتصال بقاعدة البيانات...</span>
+        <span id="connIndicator" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span id="connStatusText" class="font-bold">جاري الاتصال التلقائي بقاعدة البيانات...</span>
       </div>
-      <button id="topShortcutBtn" type="button" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1 rounded-lg">
-        📲 إضافة أيقونة للشاشة الرئيسية
-      </button>
+      <span class="text-[11px] text-slate-400 font-mono" dir="ltr">smartlinealert-default-rtdb</span>
     </div>
   </div>
 
-  <div class="max-w-4xl mx-auto px-4 pt-5">
-    <!-- شاشة تسجيل بيانات المستخدم -->
-    <section id="regSec" class="bg-white rounded-2xl shadow border p-6 max-w-xl mx-auto space-y-4">
-      <h1 class="text-xl font-extrabold text-blue-800">تسجيل بيانات المستخدم</h1>
-      <form id="clientForm" class="space-y-3">
-        <input id="cName" type="text" required placeholder="الاسم بالكامل *" class="w-full rounded-xl border p-2.5 text-sm" />
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <input id="cSap" type="text" required placeholder="رقم الساب (SAP) *" class="w-full rounded-xl border p-2.5 text-sm" />
-          <input id="cPhone" type="tel" required placeholder="رقم التليفون *" class="w-full rounded-xl border p-2.5 text-sm" />
+  <div class="max-w-4xl mx-auto px-4 pt-6">
+    <!-- شاشة التسجيل لأول مرة أو التعديل -->
+    <section id="registrationSection" class="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden max-w-xl mx-auto mt-4">
+      <div class="bg-gradient-to-l from-blue-700 to-indigo-800 p-6 text-white">
+        <h1 class="text-2xl font-extrabold" id="regFormTitle">تسجيل بيانات المستخدم</h1>
+        <p class="text-blue-100 text-sm mt-1">تُحفظ بياناتك تلقائياً وتظهر في لوحة المراقبة الرئيسية</p>
+      </div>
+
+      <form id="clientProfileForm" class="p-6 space-y-4">
+        <div>
+          <label class="block text-sm font-bold text-slate-700 mb-1">الاسم بالكامل *</label>
+          <input id="clientName" type="text" required placeholder="مثال: م. أحمد محمود علي" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <input id="cLine" type="text" required placeholder="خط الإنتاج / القسم *" class="w-full rounded-xl border p-2.5 text-sm" />
-          <input id="cDept" type="text" required placeholder="الإدارة *" class="w-full rounded-xl border p-2.5 text-sm" />
-          <input id="cFactory" type="text" required placeholder="المصنع *" class="w-full rounded-xl border p-2.5 text-sm" />
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">رقم الساب (SAP ID) *</label>
+            <input id="clientSap" type="text" required placeholder="مثال: 104582" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">رقم تليفون التواصل *</label>
+            <input id="clientPhone" type="tel" required placeholder="مثال: 01012345678" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+          </div>
         </div>
-        <div class="flex gap-2 pt-2">
-          <button type="submit" class="flex-1 bg-blue-600 text-white font-bold py-2.5 rounded-xl">حفظ البيانات والدخول</button>
-          <button type="button" id="cancelEditBtn" class="hidden bg-slate-200 px-4 py-2.5 rounded-xl font-bold">إلغاء</button>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">خط الإنتاج / القسم *</label>
+            <input id="clientLine" type="text" required placeholder="خط التجميع 3" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">الإدارة *</label>
+            <input id="clientDept" type="text" required placeholder="إدارة الإنتاج" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">المصنع *</label>
+            <input id="clientFactory" type="text" required placeholder="مصنع 1" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+          </div>
+        </div>
+        <div class="pt-3 flex items-center gap-3">
+          <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl shadow-md transition">حفظ البيانات والدخول</button>
+          <button type="button" id="cancelEditProfileBtn" class="hidden bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-5 rounded-xl">إلغاء</button>
         </div>
       </form>
     </section>
 
-    <!-- الصفحة الرئيسية بعد التسجيل -->
-    <section id="mainSec" class="hidden space-y-5">
-      <!-- شريط إضافة اختصار للشاشة الرئيسية يظهر بعد إدخال البيانات -->
-      <div class="bg-indigo-700 text-white rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow">
-        <div class="text-xs sm:text-sm">
-          <strong class="block">📲 ضع أيقونة التطبيق (Shortcut) على الشاشة الرئيسية للموبايل</strong>
-          <span class="text-indigo-200">للدخول السريع بضغطة واحدة في أي وقت</span>
-        </div>
-        <button id="bannerShortcutBtn" type="button" class="bg-white text-indigo-800 font-extrabold text-xs px-4 py-2 rounded-xl">
-          ➕ تثبيت الأيقونة الآن
-        </button>
-      </div>
-
-      <header class="bg-white rounded-2xl shadow border p-4 flex flex-wrap items-center justify-between gap-3">
+    <!-- الصفحة الرئيسية للعميل -->
+    <section id="mainDashboardSection" class="hidden space-y-6">
+      <header class="bg-white rounded-2xl shadow-md border border-slate-200 p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 id="hdrName" class="text-lg font-extrabold"></h2>
-          <p id="hdrWork" class="text-xs text-slate-600 font-bold"></p>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 id="headerClientName" class="text-xl font-extrabold text-slate-900">--</h2>
+            <span id="headerClientSap" class="bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold px-2.5 py-0.5 rounded-full">SAP: --</span>
+          </div>
+          <p id="headerClientWorkplace" class="text-sm text-slate-600 font-semibold mt-1">--</p>
+          <p id="headerClientPhone" class="text-xs text-slate-500 mt-0.5">📞 --</p>
         </div>
-        <div class="flex gap-2">
-          <button id="editBtn" type="button" class="bg-amber-100 text-amber-800 font-bold text-xs px-3 py-1.5 rounded-xl">✏️ تعديل</button>
-          <button id="logoutBtn" type="button" class="bg-rose-100 text-rose-700 font-bold text-xs px-3 py-1.5 rounded-xl">🚪 خروج / مسح</button>
+        <div class="flex items-center gap-2">
+          <button id="editProfileBtn" type="button" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs px-3.5 py-2 rounded-xl">✏️ تعديل</button>
+          <button id="logoutProfileBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-3.5 py-2 rounded-xl">🚪 خروج / مسح</button>
         </div>
       </header>
 
-      <!-- نموذج تسجيل شكوى جديدة -->
-      <div class="bg-white rounded-2xl shadow border p-5 space-y-3">
-        <h3 class="font-extrabold text-base border-b pb-2">📝 تسجيل شكوى جديدة</h3>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <input id="tTitle" type="text" placeholder="1. عنوان المشكلة *" class="w-full rounded-xl border p-2.5 text-sm" />
-          <input id="tMachine" type="text" placeholder="2. الجهاز / المعدة / المكون *" class="w-full rounded-xl border p-2.5 text-sm" />
+      <!-- تسجيل شكوى جديدة -->
+      <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+        <div class="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
+          <h3 class="font-extrabold text-lg">📝 تسجيل شكوى جديدة</h3>
+          <span class="text-xs bg-emerald-600 text-white px-3 py-1 rounded-full font-bold">إرسال لحظي للقسم المختص</span>
         </div>
-        <textarea id="tDesc" rows="2" placeholder="3. الوصف للمشكلة *" class="w-full rounded-xl border p-2.5 text-sm"></textarea>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <button id="btnTooling" type="button" class="bg-orange-600 hover:bg-orange-700 text-white font-extrabold py-3 rounded-xl">🔧 إرسال الشكوى للـ Tooling</button>
-          <button id="btnProcess" type="button" class="bg-purple-600 hover:bg-purple-700 text-white font-extrabold py-3 rounded-xl">⚙️ إرسال الشكوى للـ Process</button>
+        <div class="p-6 space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">1. عنوان المشكلة *</label>
+              <input id="issueTitle" type="text" placeholder="مثال: توقف مفاجئ في وحدة التغذية" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">2. الجهاز / المعدة / المكون *</label>
+              <input id="issueMachine" type="text" placeholder="مثال: ماكينة الحقن #4 - قالب B" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-bold text-slate-700 mb-1">3. الوصف للمشكلة *</label>
+            <textarea id="issueDescription" rows="3" placeholder="اكتب تفاصيل المشكلة..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none"></textarea>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <button id="sendToToolingBtn" type="button" class="bg-gradient-to-l from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-md transition">🔧 إرسال الشكوى للـ Tooling</button>
+            <button id="sendToProcessBtn" type="button" class="bg-gradient-to-l from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold py-3.5 px-6 rounded-xl shadow-md transition">⚙️ إرسال الشكوى للـ Process</button>
+          </div>
         </div>
       </div>
 
-      <!-- سجل شكاوى العميل -->
-      <div class="bg-white rounded-2xl shadow border p-5 space-y-3">
-        <h3 class="font-extrabold text-base border-b pb-2">📋 الشكاوى المسجلة الخاصة بك</h3>
-        <div id="myTicketsBox" class="space-y-3"></div>
+      <!-- سجل الشكاوى المسجلة -->
+      <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <h3 class="font-extrabold text-lg text-slate-800">📋 سجل الشكاوى الخاصة بك</h3>
+          <span id="myTicketsCountBadge" class="bg-blue-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">0 طلب</span>
+        </div>
+        <div id="myTicketsContainer" class="p-6 space-y-4"></div>
       </div>
     </section>
   </div>
 
-  <!-- نافذة شرح إضافة الأيقونة على الموبايل -->
-  <div id="shortcutModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl max-w-md w-full p-5 space-y-3 text-sm">
-      <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-extrabold text-base">📲 تثبيت الأيقونة على الشاشة الرئيسية</h3>
-        <button id="closeScModal" type="button" class="font-bold text-lg">✕</button>
-      </div>
-      <p class="bg-blue-50 p-3 rounded-xl"><strong>🤖 أندرويد / كمبيوتر (Chrome):</strong> اضغط قائمة المتصفح <strong>(⋮)</strong> بالأعلى ثم اختر <strong>الإضافة إلى الشاشة الرئيسية (Add to Home screen)</strong>.</p>
-      <p class="bg-slate-100 p-3 rounded-xl"><strong>🍏 آيفون (Safari):</strong> اضغط زر المشاركة <strong>(Share ⬆️)</strong> بالأسفل ثم اختر <strong>Add to Home Screen</strong>.</p>
-    </div>
+  <div id="toastBox" class="fixed bottom-5 left-5 right-5 sm:left-auto sm:right-6 sm:w-96 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl hidden items-center justify-between z-50">
+    <span id="toastMessage" class="text-sm font-semibold"></span>
   </div>
 
   <script>
-    // نفس مسار النسخة القديمة بالضبط + رابط Firebase المدمج تلقائياً
-    const DEFAULT_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
+    const FIREBASE_DB_URL = "https://smartlinealert-default-rtdb.asia-southeast1.firebasedatabase.app/";
     const ROOM_KEY = "smartline_main";
-    const CLIENT_KEY = "maint_client_profile_v1";
-    const TICKETS_KEY = "maint_shared_tickets_v1";
+    const CLIENT_PROFILE_KEY = "smartline_client_profile_v2";
 
     const Storage = {
       get(k, f) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : f; } catch (e) { return f; } },
@@ -121,92 +141,73 @@
       remove(k) { try { localStorage.removeItem(k); } catch (e) {} }
     };
 
-    let clientProfile = Storage.get(CLIENT_KEY, null);
-    let ticketsMap = Storage.get(TICKETS_KEY, {});
-    let selectedStars = {};
+    let clientProfile = Storage.get(CLIENT_PROFILE_KEY, null);
+    let ticketsMap = {};
     let firebaseRootRef = null;
-    let deferredPrompt = null;
 
-    window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
-
-    function openShortcutPrompt() {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-      } else {
-        const m = document.getElementById('shortcutModal');
-        m.classList.remove('hidden'); m.classList.add('flex');
-      }
+    function showToast(msg) {
+      const box = document.getElementById('toastBox');
+      document.getElementById('toastMessage').textContent = msg;
+      box.classList.remove('hidden'); box.classList.add('flex');
+      setTimeout(() => { box.classList.add('hidden'); box.classList.remove('flex'); }, 3500);
     }
 
-    function connectFirebase() {
-      const dot = document.getElementById('connDot');
-      const statusText = document.getElementById('connStatusText');
-      try {
-        const app = !firebase.apps.length ? firebase.initializeApp({ databaseURL: DEFAULT_DB_URL }) : firebase.app();
-        const db = firebase.database(app);
-        firebaseRootRef = db.ref('maintenance_system/' + ROOM_KEY);
-
-        // مراقبة حالة الاتصال الفعلي بـ Firebase
-        db.ref('.info/connected').on('value', (snap) => {
-          if (snap.val() === true) {
-            dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-            statusText.textContent = 'متصل  (' + ROOM_KEY + ')';
-          }
-        });
-
-        // قراءة التذاكر بنفس مسار النسخة القديمة: maintenance_system/factory_main_channel/tickets
-        firebaseRootRef.child('tickets').on('value', (snapshot) => {
-          ticketsMap = snapshot.val() || {};
-          Storage.set(TICKETS_KEY, ticketsMap);
-          renderTickets();
-          dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse';
-          statusText.textContent = 'متصل (' + ROOM_KEY + ')';
-        });
-      } catch (err) {
-        statusText.textContent = 'وضع محلي (تحقق من الاتصال بالإنترنت)';
-      }
-    }
-
-    function logCloudEvent(type, summary) {
+    function pushCloudEvent(type, summary, extra = {}) {
       if (!firebaseRootRef) return;
-      const evId = 'ev_' + Date.now();
+      const evId = 'ev_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
       firebaseRootRef.child('events/' + evId).set({
-        id: evId, timestamp: Date.now(), timeStr: new Date().toLocaleString('ar-EG'), type, summary
+        id: evId, timestamp: Date.now(), timeStr: new Date().toLocaleString('ar-EG'), type, summary, ...extra
       });
     }
 
-    function updateView(isEditing = false) {
-      const regSec = document.getElementById('regSec');
-      const mainSec = document.getElementById('mainSec');
-      const cancelBtn = document.getElementById('cancelEditBtn');
+    function initFirebase() {
+      const app = !firebase.apps.length ? firebase.initializeApp({ databaseURL: FIREBASE_DB_URL }) : firebase.app();
+      firebaseRootRef = firebase.database(app).ref('smartline_system/' + ROOM_KEY);
 
+      firebaseRootRef.child('tickets').on('value', (snap) => {
+        ticketsMap = snap.val() || {};
+        renderMyTickets();
+        document.getElementById('connStatusText').textContent = 'متصل سحابياً بشكل مباشر بـ Firebase Realtime Database';
+      });
+    }
+
+    function updateViewMode(isEditing = false) {
+      const regSec = document.getElementById('registrationSection');
+      const dashSec = document.getElementById('mainDashboardSection');
+      const cancelBtn = document.getElementById('cancelEditProfileBtn');
       if (!clientProfile || isEditing) {
-        regSec.classList.remove('hidden'); mainSec.classList.add('hidden');
-        cancelBtn.classList.toggle('hidden', !isEditing);
+        regSec.classList.remove('hidden'); dashSec.classList.add('hidden');
         if (clientProfile && isEditing) {
-          document.getElementById('cName').value = clientProfile.name || '';
-          document.getElementById('cSap').value = clientProfile.sap || '';
-          document.getElementById('cPhone').value = clientProfile.phone || '';
-          document.getElementById('cLine').value = clientProfile.line || '';
-          document.getElementById('cDept').value = clientProfile.dept || '';
-          document.getElementById('cFactory').value = clientProfile.factory || '';
+          cancelBtn.classList.remove('hidden');
+          document.getElementById('clientName').value = clientProfile.name || '';
+          document.getElementById('clientSap').value = clientProfile.sap || '';
+          document.getElementById('clientPhone').value = clientProfile.phone || '';
+          document.getElementById('clientLine').value = clientProfile.line || '';
+          document.getElementById('clientDept').value = clientProfile.dept || '';
+          document.getElementById('clientFactory').value = clientProfile.factory || '';
+        } else {
+          cancelBtn.classList.add('hidden');
+          document.getElementById('clientProfileForm').reset();
         }
       } else {
-        regSec.classList.add('hidden'); mainSec.classList.remove('hidden');
-        document.getElementById('hdrName').textContent = `${clientProfile.name} (SAP: ${clientProfile.sap})`;
-        document.getElementById('hdrWork').textContent = `${clientProfile.line} | ${clientProfile.dept} | ${clientProfile.factory} — 📞 ${clientProfile.phone}`;
-        renderTickets();
+        regSec.classList.add('hidden'); dashSec.classList.remove('hidden');
+        document.getElementById('headerClientName').textContent = clientProfile.name;
+        document.getElementById('headerClientSap').textContent = 'SAP: ' + clientProfile.sap;
+        document.getElementById('headerClientWorkplace').textContent = `${clientProfile.line} | ${clientProfile.dept} | ${clientProfile.factory}`;
+        document.getElementById('headerClientPhone').textContent = '📞 ' + clientProfile.phone;
+        renderMyTickets();
       }
     }
 
-    function sendTicket(targetDept) {
+    function submitComplaint(targetDept) {
       if (!clientProfile) return;
-      const titleEl = document.getElementById('tTitle');
-      const machineEl = document.getElementById('tMachine');
-      const descEl = document.getElementById('tDesc');
-      const title = titleEl.value.trim(), machine = machineEl.value.trim(), description = descEl.value.trim();
-      if (!title || !machine || !description) return;
-
+      const title = document.getElementById('issueTitle').value.trim();
+      const machine = document.getElementById('issueMachine').value.trim();
+      const description = document.getElementById('issueDescription').value.trim();
+      if (!title || !machine || !description) {
+        showToast('⚠️ يرجى ملء عنوان المشكلة واسم المعدة والوصف');
+        return;
+      }
       const codeNum = Math.floor(1000 + Math.random() * 9000);
       const ticketCode = `TCK-${codeNum}`;
       const id = 't_' + Date.now() + '_' + codeNum;
@@ -214,127 +215,126 @@
       const newTicket = {
         id, ticketCode, referenceNumber: '', targetDept,
         createdAt: new Date().toLocaleString('ar-EG'),
-        timestamp: Date.now(), alarmExpiresAt: Date.now() + 60000,
-        clientName: clientProfile.name, clientSap: clientProfile.sap, clientPhone: clientProfile.phone,
-        clientLine: clientProfile.line, clientDept: clientProfile.dept, clientFactory: clientProfile.factory,
+        timestamp: Date.now(),
+        alarmExpiresAt: Date.now() + 60000, // 60 ثانية مدة الإنذار الصوتي ثم صامت
+        clientName: clientProfile.name,
+        clientSap: clientProfile.sap,
+        clientPhone: clientProfile.phone,
+        clientLine: clientProfile.line,
+        clientDept: clientProfile.dept,
+        clientFactory: clientProfile.factory,
         title, machine, description,
-        status: 'pending', statusLabel: 'في انتظار القبول',
-        providerName: '', providerPhone: '', resolutionNotes: '', rating: 0, ratingComment: ''
+        status: 'pending',
+        statusLabel: 'في انتظار القبول',
+        providerName: '', providerPhone: '', resolutionNotes: '', rating: 0
       };
 
-      ticketsMap[id] = newTicket;
-      Storage.set(TICKETS_KEY, ticketsMap);
-      if (firebaseRootRef) {
-        firebaseRootRef.child('tickets/' + id).set(newTicket);
-      }
-      logCloudEvent('NEW_TICKET', `أرسل "${clientProfile.name}" شكوى (${ticketCode}) لقسم ${targetDept}`);
-      titleEl.value = ''; machineEl.value = ''; descEl.value = '';
-      renderTickets();
+      firebaseRootRef.child('tickets/' + id).set(newTicket);
+      pushCloudEvent('NEW_TICKET', `أرسل العميل "${clientProfile.name}" شكوى (${ticketCode}) إلى قسم ${targetDept} — المعدة: ${machine}`);
+      document.getElementById('issueTitle').value = '';
+      document.getElementById('issueMachine').value = '';
+      document.getElementById('issueDescription').value = '';
+      showToast(`✅ تم إرسال الشكوى (${ticketCode}) إلى قسم ${targetDept}`);
     }
 
-    function renderTickets() {
-      const box = document.getElementById('myTicketsBox');
-      if (!box || !clientProfile) return;
-      const myTickets = Object.values(ticketsMap || {})
+    function renderMyTickets() {
+      const container = document.getElementById('myTicketsContainer');
+      if (!container || !clientProfile) return;
+      const myTickets = Object.values(ticketsMap)
         .filter(t => t.clientSap === clientProfile.sap || t.clientName === clientProfile.name)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
+      document.getElementById('myTicketsCountBadge').textContent = `${myTickets.length} طلب`;
       if (myTickets.length === 0) {
-        box.innerHTML = `<p class="text-center text-slate-400 py-6 text-sm">لا توجد شكاوى مسجلة حتى الآن</p>`;
+        container.innerHTML = `<div class="text-center py-8 text-slate-400 font-bold">لا توجد شكاوى مسجلة باسمك حتى الآن</div>`;
         return;
       }
 
-      box.innerHTML = myTickets.map(t => {
-        const curStars = selectedStars[t.id] !== undefined ? selectedStars[t.id] : Number(t.rating || 0);
-        let ratingBlock = '';
+      container.innerHTML = myTickets.map(t => {
+        const statusMap = {
+          pending: { text: 'في انتظار استلام الفني', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
+          open: { text: 'مفتوحة', cls: 'bg-blue-100 text-blue-800 border-blue-300' },
+          in_progress: { text: 'جاري العمل عليها 🔧', cls: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+          resolved: { text: 'تم الحل ✅', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+          rejected: { text: 'تم رفض الطلب ❌', cls: 'bg-rose-100 text-rose-800 border-rose-300' }
+        };
+        const st = statusMap[t.status] || statusMap.open;
+        const curRating = Number(t.rating || 0);
+        let starsHtml = '';
         if (t.status === 'resolved') {
-          let starsBtns = '';
-          for (let i = 1; i <= 5; i++) {
-            starsBtns += `<button type="button" data-pick-star="${t.id}" data-val="${i}" class="text-2xl ${i <= curStars ? 'text-amber-400' : 'text-slate-300'}">★</button>`;
+          let btns = '';
+          for (let s = 1; s <= 5; s++) {
+            btns += `<button type="button" data-rate-id="${t.id}" data-stars="${s}" class="star-btn text-2xl ${s <= curRating ? 'text-amber-400' : 'text-slate-300'}">★</button>`;
           }
-          ratingBlock = `
-            <div class="pt-3 border-t space-y-2 bg-slate-50 p-3 rounded-xl">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-extrabold">⭐ تقييم المهمة (من 5 نجوم):</span>
-                <div dir="ltr">${starsBtns}</div>
-              </div>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input id="comment_${t.id}" type="text" value="${t.ratingComment || ''}" placeholder="💬 تعليقك على الإصلاح (اختياري)..." class="flex-1 rounded-xl border px-3 py-1.5 text-xs bg-white" />
-                <button type="button" data-save-rating="${t.id}" class="bg-blue-600 text-white font-bold text-xs px-4 py-1.5 rounded-xl">حفظ التقييم والتعليق</button>
-              </div>
-            </div>
-          `;
+          starsHtml = `<div class="pt-2 border-t flex items-center justify-between"><span class="text-xs font-extrabold">⭐ تقييم المهمة (من 5 نجوم):</span><div dir="ltr">${btns}</div></div>`;
         }
+
         return `
-          <div class="border rounded-2xl p-4 space-y-2 bg-white">
-            <div class="flex justify-between items-center border-b pb-2 text-xs">
-              <span class="font-mono font-bold bg-slate-900 text-white px-2 py-0.5 rounded">${t.ticketCode} (${t.targetDept})</span>
-              <span class="font-extrabold text-blue-700">الحالة: ${t.statusLabel || t.status}</span>
+          <div class="rounded-2xl border border-slate-200 p-4 space-y-3 bg-white shadow-xs">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-1 rounded-lg">${t.ticketCode}</span>
+                <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-100">${t.targetDept}</span>
+                <span class="text-xs text-slate-500">🕒 ${t.createdAt}</span>
+              </div>
+              <span class="text-xs font-extrabold px-3 py-1 rounded-full border ${st.cls}">الحالة: ${st.text}</span>
             </div>
-            <p class="text-sm font-bold">${t.title} — <span class="text-slate-600">⚙️ ${t.machine}</span></p>
-            <p class="text-xs text-slate-500">🕒 ${t.createdAt}</p>
-            ${t.providerName ? `<p class="text-xs bg-blue-50 p-2 rounded-lg font-bold">👷 المسؤول: ${t.providerName} | 📞 <a href="tel:${t.providerPhone}" class="underline" dir="ltr">${t.providerPhone}</a></p>` : ''}
-            ${t.resolutionNotes ? `<p class="text-xs bg-emerald-50 p-2 rounded-lg text-emerald-900 font-bold">🛠️ ما تم عمله: ${t.resolutionNotes} (${t.referenceNumber || ''})</p>` : ''}
-            ${ratingBlock}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+              <div><span class="text-xs text-slate-400 block">اسم الشكوى:</span><strong class="text-slate-900">${t.title}</strong></div>
+              <div><span class="text-xs text-slate-400 block">الجهاز أو المعدة:</span><strong class="text-slate-800">⚙️ ${t.machine}</strong></div>
+            </div>
+            ${t.providerName ? `<div class="bg-slate-50 p-3 rounded-xl border text-xs flex flex-wrap justify-between"><span>👷 المتولي للمشكلة: <strong>${t.providerName}</strong></span><span>📞 تليفون التواصل: <a href="tel:${t.providerPhone}" class="text-blue-700 font-bold underline" dir="ltr">${t.providerPhone}</a></span></div>` : `<div class="text-xs text-slate-400">⏳ بانتظار قبول أحد مقدمي الخدمة...</div>`}
+            ${t.resolutionNotes ? `<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs"><div class="flex justify-between font-bold text-emerald-900"><span>🛠️ ما تم عمله لحل المشكلة:</span><span>${t.referenceNumber || ''}</span></div><p class="mt-1 text-emerald-950 font-semibold">${t.resolutionNotes}</p></div>` : ''}
+            ${starsHtml}
           </div>
         `;
       }).join('');
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      connectFirebase();
-      updateView(false);
+      initFirebase();
+      updateViewMode(false);
 
-      document.getElementById('clientForm').addEventListener('submit', (e) => {
+      document.getElementById('clientProfileForm').addEventListener('submit', (e) => {
         e.preventDefault();
-        const sap = document.getElementById('cSap').value.trim().replace(/[.#$\[\]]/g, '_');
+        const sap = document.getElementById('clientSap').value.trim().replace(/[.#$\[\]]/g, '_');
         clientProfile = {
           id: 'client_' + sap,
-          name: document.getElementById('cName').value.trim(),
+          name: document.getElementById('clientName').value.trim(),
           sap,
-          phone: document.getElementById('cPhone').value.trim(),
-          line: document.getElementById('cLine').value.trim(),
-          dept: document.getElementById('cDept').value.trim(),
-          factory: document.getElementById('cFactory').value.trim(),
-          registeredAt: new Date().toLocaleString('ar-EG')
+          phone: document.getElementById('clientPhone').value.trim(),
+          line: document.getElementById('clientLine').value.trim(),
+          dept: document.getElementById('clientDept').value.trim(),
+          factory: document.getElementById('clientFactory').value.trim(),
+          registeredAt: new Date().toLocaleString('ar-EG'),
+          timestamp: Date.now()
         };
-        Storage.set(CLIENT_KEY, clientProfile);
-        if (firebaseRootRef) {
-          firebaseRootRef.child('clients/' + clientProfile.id).set(clientProfile);
-        }
-        logCloudEvent('CLIENT_REGISTERED', `سجّل العميل "${clientProfile.name}" (SAP: ${sap})`);
-        updateView(false);
+        Storage.set(CLIENT_PROFILE_KEY, clientProfile);
+        firebaseRootRef.child('clients/' + clientProfile.id).set(clientProfile);
+        pushCloudEvent('CLIENT_REGISTERED', `سجّل العميل "${clientProfile.name}" (SAP: ${sap}) بياناته في المنظومة`);
+        updateViewMode(false);
+        showToast('✅ تم حفظ بياناتك بنجاح');
       });
 
-      document.getElementById('editBtn').addEventListener('click', () => updateView(true));
-      document.getElementById('cancelEditBtn').addEventListener('click', () => updateView(false));
-      document.getElementById('logoutBtn').addEventListener('click', () => {
-        Storage.remove(CLIENT_KEY); clientProfile = null; updateView(false);
+      document.getElementById('editProfileBtn').addEventListener('click', () => updateViewMode(true));
+      document.getElementById('cancelEditProfileBtn').addEventListener('click', () => updateViewMode(false));
+      document.getElementById('logoutProfileBtn').addEventListener('click', () => {
+        Storage.remove(CLIENT_PROFILE_KEY); clientProfile = null; updateViewMode(false);
+        showToast('تم الخروج ومسح البيانات من الجهاز');
       });
 
-      document.getElementById('btnTooling').addEventListener('click', () => sendTicket('Tooling'));
-      document.getElementById('btnProcess').addEventListener('click', () => sendTicket('Process'));
-      document.getElementById('topShortcutBtn').addEventListener('click', openShortcutPrompt);
-      document.getElementById('bannerShortcutBtn').addEventListener('click', openShortcutPrompt);
-      document.getElementById('closeScModal').addEventListener('click', () => document.getElementById('shortcutModal').classList.add('hidden'));
+      document.getElementById('sendToToolingBtn').addEventListener('click', () => submitComplaint('Tooling'));
+      document.getElementById('sendToProcessBtn').addEventListener('click', () => submitComplaint('Process'));
 
-      document.getElementById('myTicketsBox').addEventListener('click', (e) => {
-        const starBtn = e.target.closest('[data-pick-star]');
-        if (starBtn) {
-          const id = starBtn.getAttribute('data-pick-star');
-          selectedStars[id] = parseInt(starBtn.getAttribute('data-val'), 10);
-          renderTickets();
-        }
-        const saveBtn = e.target.closest('[data-save-rating]');
-        if (saveBtn) {
-          const id = saveBtn.getAttribute('data-save-rating');
-          const stars = selectedStars[id] !== undefined ? selectedStars[id] : Number((ticketsMap[id] && ticketsMap[id].rating) || 5);
-          const comment = (document.getElementById(`comment_${id}`).value || '').trim();
-          if (firebaseRootRef) {
-            firebaseRootRef.child('tickets/' + id).update({ rating: stars, ratingComment: comment });
-          }
-          logCloudEvent('TICKET_RATED', `قيّم "${clientProfile.name}" الطلب (${ticketsMap[id].ticketCode}) بـ ${stars} نجوم`);
-        }
+      document.getElementById('myTicketsContainer').addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-rate-id]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-rate-id');
+        const stars = parseInt(btn.getAttribute('data-stars'), 10);
+        firebaseRootRef.child('tickets/' + id + '/rating').set(stars);
+        const t = ticketsMap[id] || {};
+        pushCloudEvent('TICKET_RATED', `قيّم العميل "${clientProfile.name}" المهمة (${t.ticketCode || ''}) التي نفذها "${t.providerName || ''}" بـ ${stars} نجوم`);
+        showToast(`⭐ تم تسجيل تقييمك (${stars} نجوم)`);
       });
     });
   </script>
