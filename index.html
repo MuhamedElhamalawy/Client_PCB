@@ -118,7 +118,11 @@
           <p id="headerClientWorkplace" class="text-sm text-slate-600 font-semibold mt-1">--</p>
           <p id="headerClientPhone" class="text-xs text-slate-500 mt-0.5">📞 --</p>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="openHistoryModalHeaderBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+            <span>📂 السجلات السابقة</span>
+            <span id="historyCountHeaderBadge" class="bg-blue-500 text-white text-[11px] px-2 py-0.2 rounded-full">0</span>
+          </button>
           <button id="editProfileBtn" type="button" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs px-3.5 py-2 rounded-xl">✏️ تعديل</button>
           <button id="logoutProfileBtn" type="button" class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-3.5 py-2 rounded-xl">🚪 خروج</button>
         </div>
@@ -152,15 +156,37 @@
         </div>
       </div>
 
-      <!-- سجل الشكاوى المسجلة -->
+      <!-- الشكاوى الحالية فقط (تختفي تلقائياً بعد الإغلاق والتقييم) -->
       <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-          <h3 class="font-extrabold text-base text-slate-800">📋 سجل الشكاوى الخاصة بك</h3>
-          <span id="myTicketsCountBadge" class="bg-blue-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">0 طلب</span>
+        <div class="px-6 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50">
+          <div>
+            <h3 class="font-extrabold text-base text-slate-800">📋 الشكاوى الجارية حالياً</h3>
+            <p class="text-[11px] text-slate-500">تختفي الشكوى من هنا تلقائياً بعد إغلاقها وتنتقل إلى نافذة السجلات السابقة</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="myActiveTicketsCountBadge" class="bg-blue-600 text-white text-xs font-extrabold px-3 py-1 rounded-full">0 جارية</span>
+            <button id="openHistoryModalBtn" type="button" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 font-extrabold text-xs px-3.5 py-1.5 rounded-xl transition">
+              📂 عرض السجلات السابقة (<span id="historyCountBtnText">0</span>)
+            </button>
+          </div>
         </div>
-        <div id="myTicketsContainer" class="p-6 space-y-4"></div>
+        <div id="myActiveTicketsContainer" class="p-6 space-y-4"></div>
       </div>
     </section>
+  </div>
+
+  <!-- نافذة منبثقة (Modal) لعرض السجلات السابقة بتفاصيلها الكاملة -->
+  <div id="historyModal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-xs hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[88vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden">
+      <div class="bg-slate-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
+        <div>
+          <h3 class="font-extrabold text-base">📂 سجل الشكاوى السابقة المغلقة</h3>
+          <p class="text-[11px] text-slate-300">جميع البلاغات التي تم حلها وإغلاقها بتفاصيلها الكاملة</p>
+        </div>
+        <button id="closeHistoryModalBtn" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 w-8 h-8 rounded-lg font-bold text-lg flex items-center justify-center">✕</button>
+      </div>
+      <div id="historyTicketsContainer" class="p-6 space-y-4 overflow-y-auto flex-1 bg-slate-50"></div>
+    </div>
   </div>
 
   <!-- نافذة شرح تثبيت الأيقونة -->
@@ -184,7 +210,6 @@
     const ROOM_KEY = "smartline_main";
     const CLIENT_PROFILE_KEY = "smartline_client_profile_v2";
 
-    // إعداد Manifest للأيقونة على الموبايل وسطح المكتب
     const manifest = {
       name: "تطبيق بلاغات الصيانة",
       short_name: "بلاغات الصيانة",
@@ -218,7 +243,6 @@
 
     let clientProfile = Storage.get(CLIENT_PROFILE_KEY, null);
     let ticketsMap = {};
-    let clientsMap = {};
     let selectedStars = {};
     let isEditingMode = false;
     let firebaseRootRef = null;
@@ -265,8 +289,7 @@
       firebaseRootRef.on('value', (snap) => {
         const val = snap.val() || {};
         ticketsMap = val.tickets || {};
-        clientsMap = val.clients || {};
-        renderMyTickets();
+        renderTicketsAndHistory();
       });
     }
 
@@ -323,7 +346,7 @@
         document.getElementById('headerClientSap').textContent = 'SAP: ' + clientProfile.sap;
         document.getElementById('headerClientWorkplace').textContent = `${clientProfile.line} | ${clientProfile.dept} | ${clientProfile.factory}`;
         document.getElementById('headerClientPhone').textContent = '📞 ' + clientProfile.phone;
-        renderMyTickets();
+        renderTicketsAndHistory();
       }
     }
 
@@ -344,7 +367,7 @@
         id, ticketCode, referenceNumber: '', targetDept,
         createdAt: new Date().toLocaleString('ar-EG'),
         timestamp: Date.now(),
-        alarmExpiresAt: Date.now() + 60000, // دقيقة واحدة للإنذار ثم يصبح صامتاً
+        alarmExpiresAt: Date.now() + 60000,
         clientName: clientProfile.name,
         clientSap: clientProfile.sap,
         clientPhone: clientProfile.phone,
@@ -356,7 +379,8 @@
         statusLabel: 'في انتظار القبول',
         providerName: '', providerPhone: '',
         rejectedBy: {},
-        resolutionNotes: '', rating: 0, ratingComment: ''
+        resolutionNotes: '', rating: 0, ratingComment: '',
+        archivedByClient: false
       };
 
       firebaseRootRef.child('tickets/' + id).set(newTicket);
@@ -367,69 +391,157 @@
       showToast('✅ تم الإرسال بنجاح');
     }
 
-    function renderMyTickets() {
-      const container = document.getElementById('myTicketsContainer');
-      if (!container || !clientProfile) return;
-      const myTickets = Object.values(ticketsMap)
+    // تحديد ما إذا كانت الشكوى مغلقة وتنتقل للسجلات السابقة (إذا تم حلها وتقييمها أو ضغط العميل إغلاق)
+    function isTicketClosedForMainView(t) {
+      if (t.archivedByClient === true) return true;
+      if (t.status === 'resolved' && Number(t.rating || 0) > 0) return true;
+      return false;
+    }
+
+    function buildTicketCardHtml(t, isHistoryModal = false) {
+      const statusMap = {
+        pending: { text: 'في انتظار استلام الفني', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
+        open: { text: 'مفتوحة (تم الاستلام)', cls: 'bg-blue-100 text-blue-800 border-blue-300' },
+        in_progress: { text: 'جاري العمل عليها 🔧', cls: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
+        resolved: { text: 'تم الحل ✅', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' }
+      };
+      const st = statusMap[t.status] || statusMap.pending;
+      const curStars = selectedStars[t.id] !== undefined ? selectedStars[t.id] : Number(t.rating || 0);
+
+      let ratingUI = '';
+      if (t.status === 'resolved') {
+        let starsBtns = '';
+        for (let s = 1; s <= 5; s++) {
+          starsBtns += `<button type="button" data-pick-star="${t.id}" data-val="${s}" class="star-btn text-2xl ${s <= curStars ? 'text-amber-400' : 'text-slate-300'}">★</button>`;
+        }
+        const inputId = isHistoryModal ? `opinion_hist_${t.id}` : `opinion_${t.id}`;
+        ratingUI = `
+          <div class="pt-3 border-t space-y-2.5 bg-slate-50 p-3.5 rounded-xl">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="text-xs font-extrabold text-slate-700">⭐ تقييم الخدمة (من 5 نجوم):</span>
+              <div dir="ltr">${starsBtns}</div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2">
+              <input id="${inputId}" type="text" value="${t.ratingComment || ''}" placeholder="💬 اكتب رأيك في الخدمة (اختياري)..." class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-600" />
+              <button type="button" data-save-rating="${t.id}" data-from-history="${isHistoryModal ? '1' : '0'}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl">
+                ${isHistoryModal ? 'تحديث التقييم' : 'حفظ التقييم وإغلاق الشكوى'}
+              </button>
+              ${!isHistoryModal ? `
+                <button type="button" data-archive-ticket="${t.id}" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl">
+                  إخفاء ونقل للسجل
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="rounded-2xl border border-slate-200 p-4 space-y-3 bg-white shadow-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-1 rounded-lg">${t.ticketCode}</span>
+              <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-100">${t.targetDept}</span>
+              <span class="text-xs text-slate-500">🕒 ${t.createdAt}</span>
+              ${t.resolvedAt ? `<span class="text-xs text-emerald-700 font-bold">✅ أُغلقت: ${t.resolvedAt}</span>` : ''}
+            </div>
+            <span class="text-xs font-extrabold px-3 py-1 rounded-full border ${st.cls}">الحالة: ${st.text}</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+            <div><span class="text-xs text-slate-400 block">اسم الشكوى:</span><strong class="text-slate-900">${t.title}</strong></div>
+            <div><span class="text-xs text-slate-400 block">الجهاز أو المعدة:</span><strong class="text-slate-800">⚙️ ${t.machine}</strong></div>
+          </div>
+          <div class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+            <strong class="text-slate-700">الوصف:</strong> ${t.description || '--'}
+          </div>
+          ${t.providerName ? `<div class="bg-slate-50 p-3 rounded-xl border text-xs flex flex-wrap justify-between"><span>👷 المتولي للمشكلة: <strong>${t.providerName}</strong></span><span>📞 تليفون التواصل: <a href="tel:${t.providerPhone}" class="text-blue-700 font-bold underline" dir="ltr">${t.providerPhone}</a></span></div>` : `<div class="text-xs text-slate-400">⏳ بانتظار قبول أحد مقدمي الخدمة...</div>`}
+          ${t.resolutionNotes ? `<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs"><div class="flex justify-between font-bold text-emerald-900"><span>🛠️ ما تم عمله لحل المشكلة:</span><span class="font-mono">${t.referenceNumber || ''}</span></div><p class="mt-1 text-emerald-950 font-semibold">${t.resolutionNotes}</p></div>` : ''}
+          ${ratingUI}
+        </div>
+      `;
+    }
+
+    function renderTicketsAndHistory() {
+      const activeContainer = document.getElementById('myActiveTicketsContainer');
+      const historyContainer = document.getElementById('historyTicketsContainer');
+      if (!activeContainer || !clientProfile) return;
+
+      const allMyTickets = Object.values(ticketsMap)
         .filter(t => t.clientPhone === clientProfile.phone || t.clientSap === clientProfile.sap)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
-      document.getElementById('myTicketsCountBadge').textContent = `${myTickets.length} طلب`;
-      if (myTickets.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-slate-400 font-bold">لا توجد شكاوى مسجلة باسمك حتى الآن</div>`;
+      const activeTickets = allMyTickets.filter(t => !isTicketClosedForMainView(t));
+      const closedHistoryTickets = allMyTickets.filter(t => isTicketClosedForMainView(t));
+
+      document.getElementById('myActiveTicketsCountBadge').textContent = `${activeTickets.length} جارية`;
+      document.getElementById('historyCountBtnText').textContent = closedHistoryTickets.length;
+      document.getElementById('historyCountHeaderBadge').textContent = closedHistoryTickets.length;
+
+      if (activeTickets.length === 0) {
+        activeContainer.innerHTML = `
+          <div class="text-center py-8 text-slate-400 space-y-2">
+            <p class="font-bold text-slate-600">لا توجد شكاوى جارية مفتوحة حالياً</p>
+            <p class="text-xs">جميع الشكاوى التي تم إغلاقها محفوظة في نافذة (📂 السجلات السابقة)</p>
+          </div>
+        `;
+      } else {
+        activeContainer.innerHTML = activeTickets.map(t => buildTicketCardHtml(t, false)).join('');
+      }
+
+      if (historyContainer) {
+        if (closedHistoryTickets.length === 0) {
+          historyContainer.innerHTML = `<div class="text-center py-10 text-slate-400 font-bold">لا توجد سجلات سابقة مغلقة حتى الآن</div>`;
+        } else {
+          historyContainer.innerHTML = closedHistoryTickets.map(t => buildTicketCardHtml(t, true)).join('');
+        }
+      }
+    }
+
+    function openHistoryModal() {
+      const modal = document.getElementById('historyModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeHistoryModal() {
+      const modal = document.getElementById('historyModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function handleTicketInteractions(e) {
+      const starBtn = e.target.closest('[data-pick-star]');
+      if (starBtn) {
+        selectedStars[starBtn.getAttribute('data-pick-star')] = parseInt(starBtn.getAttribute('data-val'), 10);
+        renderTicketsAndHistory();
         return;
       }
 
-      container.innerHTML = myTickets.map(t => {
-        const statusMap = {
-          pending: { text: 'في انتظار استلام الفني', cls: 'bg-amber-100 text-amber-800 border-amber-300' },
-          open: { text: 'مفتوحة (تم الاستلام)', cls: 'bg-blue-100 text-blue-800 border-blue-300' },
-          in_progress: { text: 'جاري العمل عليها 🔧', cls: 'bg-indigo-100 text-indigo-800 border-indigo-300' },
-          resolved: { text: 'تم الحل ✅', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' }
-        };
-        const st = statusMap[t.status] || statusMap.pending;
-        const curStars = selectedStars[t.id] !== undefined ? selectedStars[t.id] : Number(t.rating || 0);
+      const archiveBtn = e.target.closest('[data-archive-ticket]');
+      if (archiveBtn) {
+        const id = archiveBtn.getAttribute('data-archive-ticket');
+        firebaseRootRef.child('tickets/' + id).update({ archivedByClient: true });
+        showToast('📂 تم إغلاق الشكوى ونقلها إلى السجلات السابقة');
+        return;
+      }
 
-        let ratingUI = '';
-        if (t.status === 'resolved') {
-          let starsBtns = '';
-          for (let s = 1; s <= 5; s++) {
-            starsBtns += `<button type="button" data-pick-star="${t.id}" data-val="${s}" class="star-btn text-2xl ${s <= curStars ? 'text-amber-400' : 'text-slate-300'}">★</button>`;
-          }
-          ratingUI = `
-            <div class="pt-3 border-t space-y-2.5 bg-slate-50 p-3.5 rounded-xl">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-extrabold text-slate-700">⭐ تقييم الخدمة (من 5 نجوم):</span>
-                <div dir="ltr">${starsBtns}</div>
-              </div>
-              <div class="flex flex-col sm:flex-row gap-2">
-                <input id="opinion_${t.id}" type="text" value="${t.ratingComment || ''}" placeholder="💬 اكتب رأيك في الخدمة (اختياري)..." class="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-600" />
-                <button type="button" data-save-rating="${t.id}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl">حفظ التقييم والرأي</button>
-              </div>
-            </div>
-          `;
-        }
+      const saveBtn = e.target.closest('[data-save-rating]');
+      if (saveBtn) {
+        const id = saveBtn.getAttribute('data-save-rating');
+        const fromHist = saveBtn.getAttribute('data-from-history') === '1';
+        const inputEl = document.getElementById(fromHist ? `opinion_hist_${id}` : `opinion_${id}`);
+        const stars = selectedStars[id] !== undefined ? selectedStars[id] : Number((ticketsMap[id] && ticketsMap[id].rating) || 5);
+        const comment = inputEl ? inputEl.value.trim() : '';
 
-        return `
-          <div class="rounded-2xl border border-slate-200 p-4 space-y-3 bg-white shadow-xs">
-            <div class="flex flex-wrap items-center justify-between gap-2 border-b pb-2.5">
-              <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-extrabold bg-slate-900 text-white px-2.5 py-1 rounded-lg">${t.ticketCode}</span>
-                <span class="text-xs font-extrabold px-2 py-0.5 rounded bg-slate-100">${t.targetDept}</span>
-                <span class="text-xs text-slate-500">🕒 ${t.createdAt}</span>
-              </div>
-              <span class="text-xs font-extrabold px-3 py-1 rounded-full border ${st.cls}">الحالة: ${st.text}</span>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-              <div><span class="text-xs text-slate-400 block">اسم الشكوى:</span><strong class="text-slate-900">${t.title}</strong></div>
-              <div><span class="text-xs text-slate-400 block">الجهاز أو المعدة:</span><strong class="text-slate-800">⚙️ ${t.machine}</strong></div>
-            </div>
-            ${t.providerName ? `<div class="bg-slate-50 p-3 rounded-xl border text-xs flex flex-wrap justify-between"><span>👷 المتولي للمشكلة: <strong>${t.providerName}</strong></span><span>📞 تليفون التواصل: <a href="tel:${t.providerPhone}" class="text-blue-700 font-bold underline" dir="ltr">${t.providerPhone}</a></span></div>` : `<div class="text-xs text-slate-400">⏳ بانتظار قبول أحد مقدمي الخدمة...</div>`}
-            ${t.resolutionNotes ? `<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-xs"><div class="flex justify-between font-bold text-emerald-900"><span>🛠️ ما تم عمله لحل المشكلة:</span><span>${t.referenceNumber || ''}</span></div><p class="mt-1 text-emerald-950 font-semibold">${t.resolutionNotes}</p></div>` : ''}
-            ${ratingUI}
-          </div>
-        `;
-      }).join('');
+        firebaseRootRef.child('tickets/' + id).update({
+          rating: stars,
+          ratingComment: comment,
+          archivedByClient: true
+        });
+        const t = ticketsMap[id] || {};
+        pushCloudEvent('TICKET_RATED', `قيّم العميل "${clientProfile.name}" المهمة (${t.ticketCode || ''}) بـ ${stars} نجوم ${comment ? `ورأيه: "${comment}"` : ''}`);
+        showToast('✅ تم حفظ التقييم ونقل الشكوى إلى السجلات السابقة');
+      }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -504,27 +616,17 @@
 
       document.getElementById('sendToToolingBtn').addEventListener('click', () => submitComplaint('Tooling'));
       document.getElementById('sendToProcessBtn').addEventListener('click', () => submitComplaint('Process'));
+
+      document.getElementById('openHistoryModalBtn').addEventListener('click', openHistoryModal);
+      document.getElementById('openHistoryModalHeaderBtn').addEventListener('click', openHistoryModal);
+      document.getElementById('closeHistoryModalBtn').addEventListener('click', closeHistoryModal);
+
       document.getElementById('installAppBtn').addEventListener('click', triggerInstallApp);
       document.getElementById('bannerInstallBtn').addEventListener('click', triggerInstallApp);
       document.getElementById('closeShortcutModalBtn').addEventListener('click', () => document.getElementById('shortcutModal').classList.add('hidden'));
 
-      document.getElementById('myTicketsContainer').addEventListener('click', (e) => {
-        const starBtn = e.target.closest('[data-pick-star]');
-        if (starBtn) {
-          selectedStars[starBtn.getAttribute('data-pick-star')] = parseInt(starBtn.getAttribute('data-val'), 10);
-          renderMyTickets();
-        }
-        const saveBtn = e.target.closest('[data-save-rating]');
-        if (saveBtn) {
-          const id = saveBtn.getAttribute('data-save-rating');
-          const stars = selectedStars[id] !== undefined ? selectedStars[id] : Number((ticketsMap[id] && ticketsMap[id].rating) || 5);
-          const comment = (document.getElementById(`opinion_${id}`).value || '').trim();
-          firebaseRootRef.child('tickets/' + id).update({ rating: stars, ratingComment: comment });
-          const t = ticketsMap[id] || {};
-          pushCloudEvent('TICKET_RATED', `قيّم العميل "${clientProfile.name}" المهمة (${t.ticketCode || ''}) بـ ${stars} نجوم ${comment ? `ورأيه: "${comment}"` : ''}`);
-          showToast('✅ تم إرسال التقييم ورأيك بنجاح');
-        }
-      });
+      document.getElementById('myActiveTicketsContainer').addEventListener('click', handleTicketInteractions);
+      document.getElementById('historyTicketsContainer').addEventListener('click', handleTicketInteractions);
     });
   </script>
 </body>
